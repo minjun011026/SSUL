@@ -8,15 +8,16 @@ import com.example.ssul.HomeFragment
 import com.example.ssul.MapFragment
 
 class TabAdapter(fragmentActivity: FragmentActivity) : FragmentStateAdapter(fragmentActivity) {
-    private val fragmentList = listOf(
-        FavoritesFragment(),
-        HomeFragment(),
-        MapFragment()
+
+    private val fragmentCreators: Map<Int, () -> Fragment> = mapOf(
+        0 to { FavoritesFragment() },
+        1 to { HomeFragment() },
+        2 to { MapFragment() }
     )
 
     override fun createFragment(position: Int): Fragment {
-        return fragmentList[position]
+        return fragmentCreators[position]?.invoke() ?: throw IllegalStateException("Invalid position")
     }
 
-    override fun getItemCount(): Int = fragmentList.size
+    override fun getItemCount(): Int = fragmentCreators.size
 }
