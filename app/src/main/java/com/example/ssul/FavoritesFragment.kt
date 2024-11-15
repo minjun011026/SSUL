@@ -61,9 +61,19 @@ class FavoritesFragment : Fragment() {
             isFilterDateChecked = false,
             isFilterEfficiencyChecked = true,
             isFilterPartnerChecked = true
+        ),
+        StoreItem(
+            storeId = 4,
+            storeImage = R.drawable.sample_store4,
+            storeText = "역전할머니맥주",
+            isFavorite = false,
+            locationText = "서울 동작구 상도로61길 40",
+            isFilterGroupChecked = false,
+            isFilterDateChecked = false,
+            isFilterEfficiencyChecked = true,
+            isFilterPartnerChecked = true
         )
     )
-
     private val activeFilters = mutableSetOf<String>()
 
     override fun onCreateView(
@@ -79,23 +89,32 @@ class FavoritesFragment : Fragment() {
 
         setupViews(view)
 
-        // SharedPreferences 초기화
-        sharedPreferences = requireContext().getSharedPreferences("favorite", Context.MODE_PRIVATE)
-
         // 내부 저장소에서 즐겨찾기 상태 로드
+        sharedPreferences = requireContext().getSharedPreferences("favorite", Context.MODE_PRIVATE)
         sampleStoreItems.forEach { item ->
             item.isFavorite = sharedPreferences.getBoolean(item.storeId.toString(), false)
         }
+        val favoriteItems = sampleStoreItems.filter { it.isFavorite } // isFavorite이 true인 항목만 필터링
 
-        // isFavorite이 true인 항목만 필터링
-        val favoriteItems = sampleStoreItems.filter { it.isFavorite }
-
-        // 어댑터 초기화
+        // 어댑터 초기화 + 즐겨찾기 제거 클릭 로직
         storeAdapter = StoreAdapter(favoriteItems) { storeId ->
-            toggleFavorite(storeId)
+            (activity as? MainActivity)?.showMessageBox(
+                message = "즐겨찾기에서 삭제하시겠습니까?",
+                onYesClicked = {
+                    toggleFavorite(storeId)
+                }
+            )
         }
         storeList.adapter = storeAdapter
 
+        // 학과 설정 클릭 시 학과 설정 액티비티로 이동
+        setDegreeButton.setOnClickListener {
+            (activity as? MainActivity)?.showMessageBox("학과를 재설정 하시겠습니까?", onYesClicked = {
+                // 학과 설정 액티비티로 이동
+            })
+        }
+
+        // toggleFilter 함수로 필터 이름과 클릭된 뷰(it) 전달
         groupFilterButton.setOnClickListener { toggleFilter("group", it as TextView) }
         dateFilterButton.setOnClickListener { toggleFilter("date", it as TextView) }
         efficiencyFilterButton.setOnClickListener { toggleFilter("efficiency", it as TextView) }
@@ -113,6 +132,7 @@ class FavoritesFragment : Fragment() {
         storeList.layoutManager = LinearLayoutManager(requireContext())
     }
 
+    // 즐겨찾기 클릭 시 내부 저장소에 상태 저장/업데이트
     private fun toggleFavorite(storeId: Int) {
         val favoriteItems = sampleStoreItems.filter { item ->
             sharedPreferences.getBoolean(item.storeId.toString(), false)
@@ -139,6 +159,7 @@ class FavoritesFragment : Fragment() {
         }
     }
 
+    // 필터 선택 시 필터 UI 변경 + 선택된 필터에 해당하는 가게 정보 표시
     private fun toggleFilter(filter: String, button: TextView) {
         // 필터 UI 변경
         if (activeFilters.contains(filter)) {
@@ -175,4 +196,6 @@ class FavoritesFragment : Fragment() {
 
         storeAdapter.updateItems(filteredItems)
     }
+
+
 }

@@ -13,4 +13,7 @@
     <string name="navigation_home">홈</string>
     <string name="navigation_map">지도</string>
 
+    <string name="yes">예</string>
+    <string name="no">아니요</string>
+
 </resources>

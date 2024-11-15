@@ -5,8 +5,10 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.viewpager2.widget.ViewPager2
 import com.example.ssul.adapter.TabAdapter
 import com.google.android.material.tabs.TabLayout
@@ -14,8 +16,14 @@ import com.google.android.material.tabs.TabLayoutMediator
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var messageBox: ConstraintLayout
+    private lateinit var messageBoxTextView: TextView
+    private lateinit var messageBoxYesButton: TextView
+    private lateinit var messageBoxNoButton: TextView
     private lateinit var tabLayout: TabLayout
     private lateinit var viewPager: ViewPager2
+
+    private var backPressedTime: Long = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,9 +41,29 @@ class MainActivity : AppCompatActivity() {
                 2 -> tab.customView = createTabView("지도", R.drawable.ic_map)
             }
         }.attach()
+
+        // 메시지 박스 표시된 경우 메시지 박스 컨테이너 외에는 터치가 안 되게 설정
+        messageBox.setOnClickListener {}
+    }
+
+    override fun onBackPressed() {
+        if (messageBox.visibility == View.VISIBLE) {
+            messageBox.visibility = View.GONE
+        } else {
+            if (System.currentTimeMillis() - backPressedTime < 2000) {
+                super.onBackPressed() // 앱 종료
+            } else {
+                backPressedTime = System.currentTimeMillis()
+                Toast.makeText(this, "'뒤로' 버튼을 한 번 더 누르면 종료됩니다.", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun setupViews() {
+        messageBox = findViewById(R.id.message_box)
+        messageBoxTextView = findViewById(R.id.message_box_text)
+        messageBoxYesButton = findViewById(R.id.message_box_yes_button)
+        messageBoxNoButton = findViewById(R.id.message_box_no_button)
         tabLayout = findViewById(R.id.tab_layout)
         viewPager = findViewById(R.id.view_pager)
     }
@@ -54,5 +82,19 @@ class MainActivity : AppCompatActivity() {
     // 프래그먼트 갱신 메서드
     fun refreshFragment(position: Int) {
         viewPager.adapter?.notifyItemChanged(position)
+    }
+
+    fun showMessageBox(message: String, onYesClicked: () -> Unit) {
+        messageBoxTextView.text = message
+        messageBox.visibility = View.VISIBLE
+
+        messageBoxYesButton.setOnClickListener {
+            messageBox.visibility = View.GONE
+            onYesClicked()
+        }
+
+        messageBoxNoButton.setOnClickListener {
+            messageBox.visibility = View.GONE
+        }
     }
 }

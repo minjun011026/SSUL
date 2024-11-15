@@ -62,6 +62,17 @@ class HomeFragment : Fragment() {
             isFilterDateChecked = false,
             isFilterEfficiencyChecked = true,
             isFilterPartnerChecked = true
+        ),
+        StoreItem(
+            storeId = 4,
+            storeImage = R.drawable.sample_store4,
+            storeText = "역전할머니맥주",
+            isFavorite = false,
+            locationText = "서울 동작구 상도로61길 40",
+            isFilterGroupChecked = false,
+            isFilterDateChecked = false,
+            isFilterEfficiencyChecked = true,
+            isFilterPartnerChecked = true
         )
     )
     private val activeFilters = mutableSetOf<String>()
@@ -86,15 +97,13 @@ class HomeFragment : Fragment() {
         // 3. 메인 화면에서 텍스트 필드 클릭시 검색 화면으로 전환
         // 4. 가게 클릭 시 세부 정보 화면(StoreActivity)로 이동 -> storeId만 intent에 extra로 전달
 
-        // SharedPreferences 초기화
-        sharedPreferences = requireContext().getSharedPreferences("favorite", Context.MODE_PRIVATE)
-
         // 내부 저장소에서 즐겨찾기 상태 로드
+        sharedPreferences = requireContext().getSharedPreferences("favorite", Context.MODE_PRIVATE)
         sampleStoreItems.forEach { item ->
             item.isFavorite = sharedPreferences.getBoolean(item.storeId.toString(), false)
         }
 
-        // 어댑터 초기화
+        // 어댑터 초기화 + 즐겨찾기 추가 로직
         storeAdapter = StoreAdapter(sampleStoreItems) { storeId ->
             toggleFavorite(storeId)
 
