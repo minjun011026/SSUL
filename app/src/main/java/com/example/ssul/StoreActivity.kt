@@ -7,12 +7,16 @@ import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.example.ssul.adapter.MenuAdapter
+import kotlinx.coroutines.launch
 
 class StoreActivity : AppCompatActivity() {
 
@@ -28,49 +32,14 @@ class StoreActivity : AppCompatActivity() {
     private lateinit var partnerInfoTextView: TextView
     private lateinit var menuList: RecyclerView
     private lateinit var menuAdapter: MenuAdapter
-
     private lateinit var messageBox: ConstraintLayout
     private lateinit var messageBoxYesButton: TextView
     private lateinit var messageBoxNoButton: TextView
-    private lateinit var sharedPreferences: SharedPreferences
 
-    private val sampleStoreInfo = StoreInfo(
-        storeId = 3,
-        storeImage = R.drawable.sample_store3,
-        storeText = "파동추야",
-        isFilterPartnerChecked = true,
-        isFavorite = false,
-        locationText = "서울 동작구 상도로58번길",
-        phoneText = "02-123-4567",
-        partnerships = listOf("IT대학" to "모든 안주 무료"),
-        menuItems = listOf(
-            StoreInfo.MenuItem(
-                menuImage = R.mipmap.ic_launcher,
-                menuName = "메뉴 1",
-                menuPrice = "500원"
-            ),
-            StoreInfo.MenuItem(
-                menuImage = R.mipmap.ic_launcher,
-                menuName = "메뉴 2",
-                menuPrice = "500원"
-            ),
-            StoreInfo.MenuItem(
-                menuImage = R.mipmap.ic_launcher,
-                menuName = "메뉴 3",
-                menuPrice = "500원"
-            ),
-            StoreInfo.MenuItem(
-                menuImage = R.mipmap.ic_launcher,
-                menuName = "메뉴 4",
-                menuPrice = "500원"
-            ),
-            StoreInfo.MenuItem(
-                menuImage = R.mipmap.ic_launcher,
-                menuName = "메뉴 5",
-                menuPrice = "500원"
-            )
-        )
-    )
+    private lateinit var favoriteSharedPreferences: SharedPreferences
+    private lateinit var degreeSharedPreferences: SharedPreferences
+
+    private lateinit var storeInfo: StoreInfo // 선택된 가게 세부 정보
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,41 +48,59 @@ class StoreActivity : AppCompatActivity() {
         window.statusBarColor = ContextCompat.getColor(this, R.color.status_background)
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
 
-        // 선택된 가게 저장
-        val storeId = intent.getIntExtra("storeId", 0)
-        val currentStore = sampleStoreInfo
-
         setupViews()
 
         // 구현 사항
-        // 1. 즐겨찾기 정보 불러오기
-        // 2. 가게 이미지 정보 입력 + 뒤로 가기 버튼 기능
-        // 3. 가게 정보 컨테이너 입력 + 즐겨찾기 클릭 처리
-        // 4. 제휴 정보 입력
-        // 5. 메뉴 정보 입력
+        // 1. 즐겨찾기, 학과 정보 불러오기
+        // 2. 선택된 가게 불러오기
+        // 3. API 요청 및 UI 업데이트
+        // 4. 기타 버튼 동작 설정(뒤로가기, 즐겨찾기)
 
 
-        // 1. 즐겨찾기 정보 불러오기
-        sharedPreferences = this.getSharedPreferences("favorite", Context.MODE_PRIVATE)
-        sampleStoreInfo.isFavorite = sharedPreferences.getBoolean(sampleStoreInfo.storeId.toString(), false)
+        // 1. 즐겨찾기, 학과 정보 불러오기
+        favoriteSharedPreferences = this.getSharedPreferences("favorite", Context.MODE_PRIVATE)
+        degreeSharedPreferences = this.getSharedPreferences("AppPreferences", Context.MODE_PRIVATE)
 
-        // 2. 가게 이미지 정보 입력 + 뒤로 가기 버튼 기능 구현
-        setStoreInfoImage(currentStore)
+        // 2. 선택된 가게 불러오기
+        val storeId = intent.getIntExtra("storeId", 0)
+        val storeImageUrl = intent.getStringExtra("storeImage")
 
-        // 3. 가게 정보 컨테이너(가게 이름, 제휴 마크, 즐겨찾기 상태, 주소, 영업시간, 웹사이트 주소) 입력
-        setStoreInfoContainer(currentStore)
+        // 3. API 요청 및 UI 업데이트
+        lifecycleScope.launch {
+            try {
+                val college = degreeSharedPreferences.getString("selectedCollege", "")
+                val degree = degreeSharedPreferences.getString("selectedDepartment", "")
 
-        // 즐겨찾기 설정 동작
-        favoriteButton.setOnClickListener {
-            toggleFavorite(storeId, currentStore)
+                // API 요청
+                storeInfo = getStoreInfo(storeId, college!!, degree!!)
+                storeInfo.isFavorite = favoriteSharedPreferences.getBoolean(storeInfo.id.toString(), false)
+
+                // UI 업데이트
+                Glide.with(this@StoreActivity).clear(storeImage)
+                Glide.with(this@StoreActivity)
+                    .load(storeImageUrl)
+                    .into(storeImage)
+
+                setStoreInfoContainer(storeInfo)
+                setPartnership(storeInfo)
+
+                menuAdapter = MenuAdapter(storeInfo.menus)
+                menuList.adapter = menuAdapter
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(this@StoreActivity, "가게 정보를 불러오지 못했습니다.", Toast.LENGTH_SHORT).show()
+                finish()
+            }
         }
 
-        // 4. 제휴 정보 입력
-        setPartnership(currentStore)
+        // 4. 기타 버튼 동작 설정(뒤로가기, 즐겨찾기)
+        cancelButton.setOnClickListener {
+            finish()
+        }
 
-        // 5. 메뉴 정보 입력
-        menuAdapter = MenuAdapter(currentStore.menuItems)
-        menuList.adapter = menuAdapter
+        favoriteButton.setOnClickListener {
+            toggleFavorite(storeId, storeInfo)
+        }
     }
 
     private fun setupViews() {
@@ -135,62 +122,37 @@ class StoreActivity : AppCompatActivity() {
         messageBoxNoButton = findViewById(R.id.message_box_no_button)
     }
 
-    // 가게 이미지 부분 동작 함수 : 이미지 표시 + 뒤로가기 버튼
-    private fun setStoreInfoImage(currentStore: StoreInfo?) {
-        // 이미지 표시
-        currentStore?.let { store ->
-            if (store.storeImage != 0) {
-                storeImage.setImageResource(store.storeImage)
-            } else {
-                storeImage.setImageResource(R.drawable.default_image) // 기본 이미지 리소스 사용
-            }
-        } ?: run {
-            storeImage.setImageResource(R.drawable.default_image) // currentStore가 null인 경우 기본 이미지 설정
-        }
-
-        // 뒤로가기 버튼 동작
-        cancelButton.setOnClickListener {
-            finish()
-        }
-    }
-
     // 가게 정보 컨테이너 세팅 함수
-    private fun setStoreInfoContainer(currentStore: StoreInfo?) {
-        // 정보 표시
-        currentStore?.let { store ->
-            storeNameTextView.text = store.storeText
-            locationTextView.text = store.locationText
-            phoneNumberTextView.text = store.phoneText
+    private fun setStoreInfoContainer(currentStore: StoreInfo) {
+        storeNameTextView.text = currentStore.name
+        locationTextView.text = currentStore.address
+        phoneNumberTextView.text = currentStore.contact
 
-            // 제휴 마크 표시
-            if (store.isFilterPartnerChecked) {
-                filterPartnerImage.visibility = View.VISIBLE
-            } else {
-                filterPartnerImage.visibility = View.GONE
-            }
+        // 제휴 마크 표시
+        if (currentStore.isAssociated) {
+            filterPartnerImage.visibility = View.VISIBLE
+        } else {
+            filterPartnerImage.visibility = View.GONE
+        }
 
-            // 즐겨찾기 표시
-            if (store.isFavorite) {
-                favoriteButton.setImageResource(R.drawable.favorite_clicked)
-            } else {
-                favoriteButton.setImageResource(R.drawable.favorite_non_clicked)
-            }
-        } ?: run {
-            storeNameTextView.text = "정보 없음"
+        // 즐겨찾기 표시
+        if (currentStore.isFavorite) {
+            favoriteButton.setImageResource(R.drawable.favorite_clicked)
+        } else {
+            favoriteButton.setImageResource(R.drawable.favorite_non_clicked)
         }
     }
 
-    // 즐겨 찾기 상태 변경 함수
-    private fun toggleFavorite(storeId: Int, currentStore: StoreInfo?) {
-        currentStore?.let {
-            if (it.isFavorite) {
-                showMessageBox(storeId, currentStore)
-            } else {
-                updateFavoriteState(storeId, currentStore)
-            }
+    // 즐겨 찾기 토글 함수
+    private fun toggleFavorite(storeId: Int, currentStore: StoreInfo) {
+        if (currentStore.isFavorite) {
+            showMessageBox(storeId, currentStore)
+        } else {
+            updateFavoriteState(storeId, currentStore)
         }
     }
 
+    // 즐겨 찾기 제거 시 띄울 메시지 박스 함수
     private fun showMessageBox(storeId: Int, currentStore: StoreInfo) {
         messageBox.visibility = View.VISIBLE
 
@@ -205,12 +167,13 @@ class StoreActivity : AppCompatActivity() {
         }
     }
 
+    // 즐겨 찾기 상태 변경 함수
     private fun updateFavoriteState(storeId: Int, currentStore: StoreInfo) {
         // 즐겨찾기 상태 변경
         currentStore.isFavorite = !currentStore.isFavorite
 
         // 내부 저장소 업데이트
-        with(sharedPreferences.edit()) {
+        with(favoriteSharedPreferences.edit()) {
             putBoolean(storeId.toString(), currentStore.isFavorite)
             apply()
         }
@@ -221,10 +184,10 @@ class StoreActivity : AppCompatActivity() {
 
     // 제휴 정보 설정 함수
     private fun setPartnership(store: StoreInfo) {
-        if (store.isFilterPartnerChecked) {
+        if (store.isAssociated) {
             partnershipContainer.visibility = View.VISIBLE
-            degreeTextView.text = store.partnerships[0].first
-            partnerInfoTextView.text = store.partnerships[0].second
+            degreeTextView.text = store.associationInfo.first
+            partnerInfoTextView.text = store.associationInfo.second
         } else {
             partnershipContainer.visibility = View.GONE
         }
